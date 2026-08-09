@@ -254,6 +254,17 @@ real measurement.** Tag `v0.1.0`.
 **Demonstrable outcome:** a terminal recording — `docker compose up`, one `curl` creating an
 order, one `curl` showing it assigned, and the Kafka topic showing both events.
 
+> **S1-12 RESULT (2026-08-09): risk retired in ~2 h of the 6 h timebox, and the risk was
+> smaller than estimated.** Overpass returns the road geometry for an 8×8 km bounding box
+> directly as JSON in one request — 5,617 ways, 41,398 geometry points — which avoids the
+> routing engine *and* the pbf/osmium path the plan assumed would be needed. The committed
+> asset is 29,567 nodes / 33,509 edges over one connected component, 2.6 MB. A seeded walk
+> covers 12.6 km across 400 real street segments. The grid fallback was built first and is
+> retained as `--synthetic` for the case where Overpass is unavailable.
+>
+> The generalisable lesson: the estimate assumed a country-sized extract. For a city-sized
+> bounding box a different tool applies, and nobody checked which regime the project was in.
+>
 > **S1-12 is deliberately in Sprint 1 despite belonging to Sprint 4's feature.** It is the
 > project's largest scope risk (R-3); discovering in week 7 that road-geometry needs a routing
 > engine would be a crisis, while discovering it in week 1 is a design adjustment. Timeboxed
