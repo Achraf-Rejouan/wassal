@@ -124,3 +124,17 @@
 - **Cause:** the tick loop reported 300 positions synchronously BEFORE draining the offer queue. Offers carry a 15s deadline and positions carry none, so the simulator was too slow to respond inside the window it was meant to test
 - **Fix:** drain offers first, and dispatch position HTTP calls on an I/O pool. Every RNG draw stays on the single tick thread, so determinism is untouched
 
+## 18. the proxy returned 502 while both gateways were healthy and reachable
+
+- **Date:** 2026-08-09 · **Commit:** [`e1101975`](../../commit/e110197597e0615e0a10dc75470a64923aee7144)
+- **Found by:** the chaos suite, after killing and restarting gateway-1
+- **Cause:** Caddy resolves an upstream's address when its config loads. A killed container comes back on a NEW IP, so the proxy kept sending traffic to an address nothing was listening on. Invisible to every unit and integration test — it exists only in the interaction between a restarted container and a proxy that resolved DNS once
+- **Fix:** active health checks so Caddy re-resolves and detects recovery, plus lb_try_duration so a failed attempt falls over to the healthy peer
+
+## 19. every POST through the proxy failed with "too many transfer encodings"
+
+- **Date:** 2026-08-09 · **Commit:** [`e1101975`](../../commit/e110197597e0615e0a10dc75470a64923aee7144)
+- **Found by:** running the demo script through the proxy rather than hitting a gateway directly
+- **Cause:** the gateway returned the upstream ResponseEntity wholesale, forwarding hop-by-hop headers — Transfer-Encoding, Connection — which describe a single connection, not the message. Tomcat then added its own, so Caddy saw chunked twice and dropped the connection
+- **Fix:** rebuild the response from status, content type and body only. Everything else belonged to the hop that produced it
+
