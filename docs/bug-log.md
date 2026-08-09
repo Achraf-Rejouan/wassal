@@ -54,3 +54,10 @@
 - **Cause:** three compounding causes behind one misleading message. Spring Boot's BOM silently pinned Testcontainers back to 1.20.4 over the version catalogue; a stale docker.client.strategy pin in ~/.testcontainers.properties forced a strategy that hardcodes Docker API 1.32; and Engine 29 refuses anything below 1.40. docker-java reads api.version as a SYSTEM PROPERTY and ignores DOCKER_API_VERSION, which is why no shell export fixed it
 - **Fix:** override the Spring-managed testcontainers.version from the catalogue, and set api.version, DOCKER_HOST and docker.client.strategy on the test task so the fix is committed and reproducible rather than living in a home directory
 
+## 8. order-service crashed on startup — permission denied to create extension postgis
+
+- **Date:** 2026-08-09 · **Commit:** [`0ef08690`](../../commit/0ef086905d4146a80ee97eded9650f3318db7b58)
+- **Found by:** first `docker compose up` of the full stack
+- **Cause:** the Flyway migration ran CREATE EXTENSION, which requires superuser, but service roles are deliberately non-superuser so that dispatch_svc cannot write orders.orders (security T-11). The design intent and the migration contradicted each other. The integration suite never caught it because Testcontainers connects as the superuser — the test harness had MORE privilege than the real deployment, so the test passed and production failed
+- **Fix:** extensions are created once by the superuser in infra/db/init/00-extensions.sql and removed from both service migrations
+
