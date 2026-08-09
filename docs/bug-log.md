@@ -33,3 +33,10 @@
 - **Cause:** the script piped git log into python while also supplying the python source as a heredoc, so both competed for stdin and python read the heredoc as its input, exiting 141 on SIGPIPE
 - **Fix:** moved the parser into scripts/gen_bug_log.py and had it invoke git log via subprocess, leaving stdin unused
 
+## 5. CI guard failed on a clean tree, blocking main
+
+- **Date:** 2026-08-09 · **Commit:** [`cf57a456`](../../commit/cf57a456aad032f5ed8cf17d6472dd945979f5e1)
+- **Found by:** first CI run on the pushed branch
+- **Cause:** the check grepped all of proof/ for the literal string @Disabled and matched its own explanatory comment in proof/*/build.gradle.kts, so the guard reported a violation that did not exist
+- **Fix:** moved it to scripts/check-no-disabled-proofs.sh, restricted to --include='*.java' and anchored to ^\s*@Disabled so only a real annotation matches
+
