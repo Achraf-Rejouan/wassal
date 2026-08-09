@@ -84,11 +84,26 @@ public class OrderProxyController {
             if (body != null) {
                 spec.body(body);
             }
-            return spec.retrieve().toEntity(String.class);
+            var upstream = spec.retrieve().toEntity(String.class);
+            return relay(upstream.getStatusCode(), upstream.getBody());
         } catch (HttpStatusCodeException e) {
-            return ResponseEntity.status(e.getStatusCode())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(e.getResponseBodyAsString());
+            return relay(e.getStatusCode(), e.getResponseBodyAsString());
         }
+    }
+
+    /**
+     * Rebuilds the response instead of returning the upstream {@link ResponseEntity} directly.
+     *
+     * <p>Returning it wholesale forwards the upstream's <em>hop-by-hop</em> headers — {@code
+     * Transfer-Encoding}, {@code Connection}, {@code Keep-Alive} — which are properties of a single
+     * connection, not of the message. Tomcat then adds its own, and a proxy in front sees {@code
+     * Transfer-Encoding: chunked} twice and drops the connection with a 502.
+     *
+     * <p>Only the status, the content type and the body cross this boundary. The status and the
+     * body are the contract; everything else belonged to the hop that produced it.
+     */
+    private static ResponseEntity<String> relay(
+            org.springframework.http.HttpStatusCode status, String body) {
+        return ResponseEntity.status(status).contentType(MediaType.APPLICATION_JSON).body(body);
     }
 }

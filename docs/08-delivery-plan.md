@@ -472,6 +472,23 @@ on failure.
 | S5-05 | Sustained-load measurement run | docs | 4 h | NFR-001 |
 | ~~S5-10~~ | ~~Hetzner CX32 in exhibition mode~~ — **dropped** (ADR-0010); closes open question U-1 | — | — | ADR-0009 |
 
+> **SPRINT 5c RESULT (2026-08-09): exit criteria met, `v0.4.0`.**
+>
+> | Proof | Result |
+> |---|---|
+> | NFR-005 recovery, 5 real-container kill scenarios | **6.1 s** worst case, **0 orders lost**, invariants held every time |
+> | Redpanda killed | outbox absorbed 17 events and drained fully — nothing lost |
+> | NFR-012 fail-closed under partition | no assignment created; courier not left `BUSY` |
+> | Fail-closed under 3 s injected latency | INV-1 held — slow is not permissive |
+> | INV-1 with application logic bypassed entirely | database refused the direct insert |
+> | README as hiring artifact | measured numbers above the fold, misses published |
+> | Bug story | 17 entries, generated from commit trailers |
+> | `./wassal.sh` + `demo.sh` + `chaos-run.sh` | one-command start, scripted walkthrough, chaos harness |
+>
+> **Two bugs found by the chaos suite itself**, both invisible to unit and integration tests:
+> Caddy holding a stale upstream IP after a container restart, and the gateway forwarding
+> hop-by-hop headers so a proxy saw `Transfer-Encoding: chunked` twice.
+
 **Exit criteria for `v0.4.0`:** chaos suite green across three kill scenarios with measured
 recovery times; all six invariant counters observed non-zero at least once; ground-truth
 comparison reports no unmatched records in either direction; README leads with the diagram,
