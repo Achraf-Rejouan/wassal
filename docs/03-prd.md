@@ -500,6 +500,21 @@ exactly why they carry the heaviest test and reconciliation burden.
 - **Priority:** Should
 - **Environment assumption, stated explicitly (item 5):** these figures are for **native Docker on Fedora Linux** — no Docker Desktop VM, no `hyperkit`/WSL2 memory reservation between the containers and the kernel. They assume a **16 GB host** running an IDE alongside. If the original figures were derived with VM-backed Docker overhead in mind, they are measuring something that does not exist on this machine.
 - **Status: provisional.** Rather than relaxing the numbers on an assumption, `S1-14` measures the actual `core` and full-stack footprint once `S1-02` brings the profiles up, and the targets are **restated against the measurement**. The nine-container residual risk is re-rated at the same time.
+- **FIRST MEASUREMENT, 2026-08-09 (`S1-15`, infrastructure tier only).** Native Docker on Fedora 44, SELinux Enforcing, 15.4 GB host:
+
+  | Container | Limit | **Measured (idle)** |
+  |---|---:|---:|
+  | postgres | 768 MB | **41 MiB** |
+  | redis | 256 MB | **4 MiB** |
+  | redpanda | 1 024 MB | **213 MiB** |
+  | **infra total** | **2 048 MB** | **≈258 MiB** |
+
+  The limits are roughly **8× actual idle usage**, which supports item 5's hypothesis that the
+  original figures were sized for VM-backed Docker overhead that does not exist here. **But this
+  is idle, and the JVM tier is not yet measured** — so the targets are *not* being relaxed on
+  this evidence. Re-measured with all services running and the simulator at 100 msg/s before
+  NFR-011 is restated. Recorded now because a measurement taken and not written down is a
+  measurement lost.
 - **The 15%-of-hours abort signal is unaffected** by whatever the measurement shows — it concerns operational time, not memory, and that reasoning is independent.
 - **General principle worth recording:** a target derived from an assumption about the environment is provisional until the environment is measured. Marking it so is cheaper than defending a number nobody checked.
 
