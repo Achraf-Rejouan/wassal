@@ -61,3 +61,24 @@
 - **Cause:** the Flyway migration ran CREATE EXTENSION, which requires superuser, but service roles are deliberately non-superuser so that dispatch_svc cannot write orders.orders (security T-11). The design intent and the migration contradicted each other. The integration suite never caught it because Testcontainers connects as the superuser — the test harness had MORE privilege than the real deployment, so the test passed and production failed
 - **Fix:** extensions are created once by the superuser in infra/db/init/00-extensions.sql and removed from both service migrations
 
+## 9. 39 of 40 couriers racing one order were counted as INV-2 violations
+
+- **Date:** 2026-08-09 · **Commit:** [`6562ac3c`](../../commit/6562ac3c145ea47a4e7f3b88a6bdc3b2d94d4029)
+- **Found by:** AtomicClaimIT.inv2SingleAssignmentPerOrder
+- **Cause:** the claim treated every unique-constraint rejection on the assignment insert as a defect. But the order-side race is ORDINARY: each courier legitimately holds their own offer and passes the offer and courier claims, so only uq_active_assignment_per_order can separate them. Counting it as a violation would make the dashboard scream on healthy traffic, which is how a real signal gets ignored
+- **Fix:** distinguish the constraint that rejected. uq_active_assignment_per_order is a lost race and increments claim_failed; the courier and offer constraints should be unreachable and still count as violations
+
+## 10. 39 of 500 concurrent replays got 409 instead of the original assignment
+
+- **Date:** 2026-08-09 · **Commit:** [`6562ac3c`](../../commit/6562ac3c145ea47a4e7f3b88a6bdc3b2d94d4029)
+- **Found by:** AtomicClaimIT.inv3AcceptIsIdempotent
+- **Cause:** the idempotency check ran before the winner committed, so late replays saw no assignment, then lost the offer claim and were reported as a lost race rather than as a replay. INV-3 requires a replay be answered with the original assignment however many times it arrives
+- **Fix:** when the offer claim fails and the offer is already ACCEPTED, re-read the assignment and return AlreadyAssigned. Safe because the UPDATE waited on the winner's row lock, so by then the winner's transaction has committed
+
+## 11. sub-second offer TTLs violated chk_deadline_after_offer
+
+- **Date:** 2026-08-09 · **Commit:** [`6562ac3c`](../../commit/6562ac3c145ea47a4e7f3b88a6bdc3b2d94d4029)
+- **Found by:** AtomicClaimIT.expiredOfferCannotBeAccepted
+- **Cause:** the TTL was converted with Duration.toSeconds(), truncating anything under a second to zero, so expires_at equalled offered_at. Harmless at the production 15s TTL but it makes short-deadline tests impossible — and those are the ones that exercise FR-012
+- **Fix:** convert in milliseconds
+
