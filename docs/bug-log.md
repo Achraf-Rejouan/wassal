@@ -96,3 +96,31 @@
 - **Cause:** CancellationSaga writes and reads assignments.cancel_reason, but that column was never created; the Sprint 1 skeleton table had cancelled_at and no reason. The saga-resume task runs on ApplicationReadyEvent, so a bad query there took the entire context down rather than failing one feature
 - **Fix:** added the column in V3, and made saga resumption log-and-count rather than propagate. A saga that cannot resume is serious, but refusing to boot is worse — the service would stop accepting orders over a handful of in-flight cancellations. The dedup-retention assertion deliberately still fails hard, because booting with INV-5 broken is worse than not booting
 
+## 14. the simulator could not write ground truth and crashed on startup
+
+- **Date:** 2026-08-09 · **Commit:** [`53c88a71`](../../commit/53c88a71acfbb43968dd210fe23e6f4d25dec25a)
+- **Found by:** first full-stack run with the simulator enabled
+- **Cause:** the container runs as a non-root user, but Docker seeds a named volume from the image directory and the mount point did not exist in the image, so the volume was created root-owned and unwritable
+- **Fix:** create /data/ground-truth with app ownership in the Dockerfile before declaring the VOLUME, so Docker seeds the correct ownership
+
+## 15. 300 simulated couriers silently failed to register; 800 orders queued unofferable
+
+- **Date:** 2026-08-09 · **Commit:** [`53c88a71`](../../commit/53c88a71acfbb43968dd210fe23e6f4d25dec25a)
+- **Found by:** full-stack run — only the 5 seed couriers existed and every offer expired
+- **Cause:** the availability endpoint issued an UPDATE, which affects zero rows for a courier that does not exist yet. There is no onboarding flow — that is a non-goal — so nothing ever created them
+- **Fix:** made availability an UPSERT. Identity is asserted rather than verified (A-03), so a courier comes into existence the first time it asserts itself with a position, which matches the auth model exactly
+
+## 16. every WebSocket connection closed with 1011 before delivering a position
+
+- **Date:** 2026-08-09 · **Commit:** [`53c88a71`](../../commit/53c88a71acfbb43968dd210fe23e6f4d25dec25a)
+- **Found by:** the cross-instance fan-out proof
+- **Cause:** `.formatted()` binds to the LAST string literal, not to a concatenation. Splitting the frame across a `+` meant only the tail was formatted, so courierId was passed to a %d and threw IllegalFormatConversionException
+- **Fix:** build the frame with a StringBuilder so no precedence question exists
+
+## 17. only 8 of 85 offers were answered; the rest expired unanswered
+
+- **Date:** 2026-08-09 · **Commit:** [`53c88a71`](../../commit/53c88a71acfbb43968dd210fe23e6f4d25dec25a)
+- **Found by:** first simulated run at 300 couriers
+- **Cause:** the tick loop reported 300 positions synchronously BEFORE draining the offer queue. Offers carry a 15s deadline and positions carry none, so the simulator was too slow to respond inside the window it was meant to test
+- **Fix:** drain offers first, and dispatch position HTTP calls on an I/O pool. Every RNG draw stays on the single tick thread, so determinism is untouched
+
