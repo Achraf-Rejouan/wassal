@@ -1,0 +1,13 @@
+# Reverse proxy in front of TWO gateway instances (architecture review F-7).
+#
+# Two instances by default, not just in tests: cross-instance WebSocket fan-out is the design's
+# headline capability, and a demo that runs one gateway would leave it visible only inside a
+# test nobody runs.
+:80 {
+	reverse_proxy gateway-1:8080 gateway-2:8080 {
+		lb_policy round_robin
+		# Sticky sessions are deliberately NOT used. The whole point is that any instance can
+		# serve any socket, because Redis Pub/Sub connects them — pinning would delete the
+		# problem instead of solving it.
+	}
+}

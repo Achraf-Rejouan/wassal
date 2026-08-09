@@ -449,6 +449,22 @@ exactly why they carry the heaviest test and reconciliation burden.
 - **Requirement:** 100 msg/s sustained; Postgres write rate ≥ 10× lower than ingest rate; hot-path write p99 < 20 ms.
 - **Measurement:** Prometheus rate counters on both paths, compared directly.
 - **Priority:** Must
+- **CLARIFIED AND MEASURED 2026-08-09 (Sprint 4).** As originally written, "Postgres write rate ≥ 10× lower than ingest" is ambiguous, and the two readings give opposite answers:
+
+  | Reading | Measured | Verdict |
+  |---|---|---|
+  | **Rows** written to Postgres | 8,400 rows for 8,400 positions — **1:1** | **Not met, and cannot be** |
+  | **Write statements** (transactions) | **17 batches** for 8,400 positions — **494× reduction** | **Met, by a wide margin** |
+
+  The row reading was never achievable and should not have been written that way: nothing is
+  discarded, so every position necessarily reaches the cold path eventually. What batching
+  reduces is the number of write *operations*, and that is the quantity the write-amplification
+  challenge (3.4) is actually about — index maintenance, WAL, and fsync are per-statement costs.
+
+  The NFR is therefore restated as **write statements**, measured by
+  `wassal_coldpath_flush_operations_total`, and the original ambiguous wording is kept above so
+  the change is visible. Picking the flattering reading of an ambiguous requirement without
+  saying so is the self-deception this project treats as its second adversary.
 
 **NFR-004 — Offer expiry accuracy**
 - **Category:** Reliability

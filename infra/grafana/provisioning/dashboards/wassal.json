@@ -1,0 +1,46 @@
+{
+  "title": "Wassal — evidence",
+  "uid": "wassal-evidence",
+  "timezone": "utc",
+  "refresh": "5s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Invariant violations (must stay at zero)",
+      "type": "timeseries",
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 0},
+      "description": "The panel that matters. A non-zero line here means a published number is a lie.",
+      "targets": [
+        {"expr": "wassal_invariant_violation_total", "legendFormat": "{{invariant}}"}
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Assignment throughput and contention",
+      "type": "timeseries",
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 0},
+      "description": "claim_failed is expected and healthy under contention — zero would mean the race never happened.",
+      "targets": [
+        {"expr": "rate(wassal_assignments_created_total[1m])", "legendFormat": "assignments/s"},
+        {"expr": "rate(wassal_claim_failed_total[1m])", "legendFormat": "lost claims/s"}
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Sweeper lag (alert at 0.5s, SLO 1s)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 9},
+      "targets": [{"expr": "wassal_sweeper_lag_seconds", "legendFormat": "lag"}]
+    },
+    {
+      "id": 4,
+      "title": "Write amplification: ingest vs Postgres (NFR-003 needs 10x)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 9},
+      "targets": [
+        {"expr": "rate(wassal_position_applied_total[1m])", "legendFormat": "ingest/s"},
+        {"expr": "rate(wassal_coldpath_rows_flushed_total[1m])", "legendFormat": "postgres rows/s"}
+      ]
+    }
+  ]
+}

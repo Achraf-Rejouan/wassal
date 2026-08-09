@@ -23,4 +23,7 @@ public interface AvailabilitySet {
     boolean contains(CourierId courierId);
 
     long size();
+
+    /** Publishes the order -> courier mapping the gateway resolves on WebSocket subscribe. */
+    void publishAssignment(String orderId, String courierId);
 }

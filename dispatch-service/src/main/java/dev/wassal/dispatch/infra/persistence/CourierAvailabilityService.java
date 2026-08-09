@@ -60,23 +60,36 @@ public class CourierAvailabilityService {
             return new Result.HasActiveAssignment();
         }
 
+        // UPSERT, not UPDATE. There is no courier-onboarding flow — that is an explicit
+        // non-goal — and identity is asserted rather than verified (A-03), so a courier comes
+        // into existence the first time it asserts itself with a position. The first version
+        // only updated, so every courier the simulator invented silently failed to register
+        // and 800 orders queued with nobody to offer them to (see docs/bug-log.md).
         int updated =
                 jdbc.update(
                         """
-                        UPDATE dispatch.couriers
+                        INSERT INTO dispatch.couriers
+                               (id, display_name, status, last_position, last_position_at)
+                        VALUES (:id, :name, 'AVAILABLE',
+                                ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography, now())
+                        ON CONFLICT (id) DO UPDATE
                            SET status = 'AVAILABLE',
-                               last_position = ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography,
+                               last_position = EXCLUDED.last_position,
                                last_position_at = now(),
                                updated_at = now(),
-                               version = version + 1
-                         WHERE id = :id AND status <> 'BUSY'
+                               version = dispatch.couriers.version + 1
+                         WHERE dispatch.couriers.status <> 'BUSY'
                         """,
                         new MapSqlParameterSource()
                                 .addValue("id", courierId.value())
+                                .addValue(
+                                        "name",
+                                        "courier-" + courierId.value().toString().substring(0, 8))
                                 .addValue("lat", position.lat())
                                 .addValue("lon", position.lon()));
         if (updated == 0) {
-            return new Result.NotFound();
+            // Zero rows means the WHERE guard rejected it: the courier is BUSY.
+            return new Result.HasActiveAssignment();
         }
 
         // Redis after Postgres. If these two lines never ran the index would be stale and the

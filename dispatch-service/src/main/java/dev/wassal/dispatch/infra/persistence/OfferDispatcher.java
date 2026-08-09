@@ -39,14 +39,17 @@ public class OfferDispatcher {
     private final CandidateFinder candidates;
     private final OfferRepository offers;
     private final org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc;
+    private final org.springframework.data.redis.core.StringRedisTemplate offerDelivery;
 
     public OfferDispatcher(
             CandidateFinder candidates,
             OfferRepository offers,
-            org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc) {
+            org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
+            org.springframework.data.redis.core.StringRedisTemplate offerDelivery) {
         this.candidates = candidates;
         this.offers = offers;
         this.jdbc = jdbc;
+        this.offerDelivery = offerDelivery;
     }
 
     @Transactional
@@ -74,6 +77,11 @@ public class OfferDispatcher {
 
         OfferId offerId =
                 offers.create(orderId, best.courierId(), OfferLifecycle.DEFAULT_TTL, sequence);
+
+        // Deliver the offer to the courier over Pub/Sub, not Kafka. An offer is only useful
+        // inside its 15s window, so at-most-once is the right guarantee — and a missed delivery
+        // is handled correctly anyway: the sweeper expires it and the next candidate is tried.
+        offerDelivery.convertAndSend("offer:courier:" + best.courierId(), offerId.toString());
 
         log.info(
                 "Offered order {} to courier {} at {}m (attempt {})",

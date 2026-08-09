@@ -1,0 +1,47 @@
+# Observability tier, kept in its own file so the everyday development loop does not pay for it
+# (NFR-011). Start with: docker compose -f docker-compose.yml -f docker-compose.observability.yml up
+#
+# Two panels, not twelve (ADR-0011 cut 2). The three that survived are the ones that appear in
+# the README, and the README is the deliverable.
+
+name: wassal
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    mem_limit: 384m
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=6h
+    volumes:
+      - ./infra/prometheus:/etc/prometheus:ro,z
+    ports:
+      - "9090:9090"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/healthy | grep -q Healthy"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  grafana:
+    image: grafana/grafana:11.3.1
+    mem_limit: 256m
+    environment:
+      # Anonymous read-only (security T-15). Default admin/admin on a public demo is a
+      # well-known way to hand over an observability stack.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-changeme-local-only}
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro,z
+    ports:
+      - "3000:3000"
+    depends_on:
+      prometheus: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health | grep -q ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20

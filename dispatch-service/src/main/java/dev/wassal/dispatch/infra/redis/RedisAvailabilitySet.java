@@ -33,6 +33,14 @@ public class RedisAvailabilitySet implements AvailabilitySet {
     }
 
     @Override
+    public void publishAssignment(String orderId, String courierId) {
+        // TTL rather than explicit deletion: the mapping is a lookup aid, and an order that
+        // never completes should not leak a key forever.
+        redis.opsForValue()
+                .set("assign:order:" + orderId, courierId, java.time.Duration.ofHours(6));
+    }
+
+    @Override
     public long size() {
         Long size = redis.opsForSet().size(KEY);
         return size == null ? 0 : size;

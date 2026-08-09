@@ -128,26 +128,114 @@ services:
       timeout: 5s
       retries: 20
 
-  gateway:
+  gateway-1:
     build:
       context: .
       dockerfile: infra/docker/service.Dockerfile
       args:
         MODULE: gateway
     mem_limit: 384m
-    environment:
+    environment: &gateway_env
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70"
       WASSAL_ORDER_SERVICE: http://order-service:8081
+      WASSAL_REDIS_HOST: redis
       WASSAL_PORT: "8080"
     ports:
-      - "8080:8080"
+      # Published individually so the cross-instance fan-out proof can connect to a SPECIFIC
+      # instance and show that delivery is not an artefact of both ends landing on the same one.
+      - "18081:8080"
     depends_on:
       order-service: { condition: service_healthy }
-    healthcheck:
+      redis: { condition: service_healthy }
+    healthcheck: &gateway_health
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q UP"]
       interval: 5s
       timeout: 5s
       retries: 20
 
+  # A SECOND instance by default, not only in tests. Cross-instance WebSocket fan-out is the
+  # design's headline capability, and running one gateway would leave it visible only inside a
+  # test nobody runs (architecture review F-7).
+  gateway-2:
+    build:
+      context: .
+      dockerfile: infra/docker/service.Dockerfile
+      args:
+        MODULE: gateway
+    mem_limit: 384m
+    environment: *gateway_env
+    ports:
+      - "18082:8080"
+    depends_on:
+      order-service: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck: *gateway_health
+
+  proxy:
+    image: caddy:2.8-alpine
+    mem_limit: 64m
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro,z
+    ports:
+      - "8080:80"
+    depends_on:
+      gateway-1: { condition: service_healthy }
+      gateway-2: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80/actuator/health | grep -q UP"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  tracking-service:
+    build:
+      context: .
+      dockerfile: infra/docker/service.Dockerfile
+      args:
+        MODULE: tracking-service
+    mem_limit: 448m
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70"
+      WASSAL_DB_URL: jdbc:postgresql://postgres:5432/wassal
+      WASSAL_DB_USER: tracking_svc
+      WASSAL_DB_PASSWORD: tracking_svc
+      WASSAL_REDIS_HOST: redis
+      WASSAL_PORT: "8083"
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8083/actuator/health | grep -q UP"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  simulator:
+    build:
+      context: .
+      dockerfile: infra/docker/service.Dockerfile
+      args:
+        MODULE: simulator
+    mem_limit: 512m
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70"
+      WASSAL_REDIS_HOST: redis
+      WASSAL_GATEWAY_URL: http://proxy:80
+      WASSAL_DISPATCH_URL: http://dispatch-service:8082
+      WASSAL_TRACKING_URL: http://tracking-service:8083
+      WASSAL_SIM_ENABLED: "${WASSAL_SIM_ENABLED:-true}"
+      WASSAL_SIM_SEED: "${WASSAL_SIM_SEED:-42}"
+      WASSAL_SIM_PROFILE: "${WASSAL_SIM_PROFILE:-standard}"
+      WASSAL_SIM_GROUND_TRUTH_DIR: /data/ground-truth
+    volumes:
+      - groundtruth:/data/ground-truth
+    depends_on:
+      proxy: { condition: service_healthy }
+      dispatch-service: { condition: service_healthy }
+      tracking-service: { condition: service_healthy }
+
 volumes:
   pgdata:
+  groundtruth:

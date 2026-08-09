@@ -1,10 +1,18 @@
 spring:
   application:
     name: gateway
+  data:
+    redis:
+      host: ${WASSAL_REDIS_HOST:localhost}
+      port: ${WASSAL_REDIS_PORT:6379}
 
 wassal:
   upstream:
     order-service: ${WASSAL_ORDER_SERVICE:http://localhost:8081}
+  ws:
+    # 4x the 500-connection target (NFR-006). Refusing loudly on upgrade beats accepting a
+    # socket that will be starved of file descriptors (security T-08).
+    global-cap: 2000
 
 server:
   port: ${WASSAL_PORT:8080}
@@ -20,3 +28,6 @@ management:
     health:
       probes:
         enabled: true
+  metrics:
+    tags:
+      service: gateway

@@ -1,0 +1,50 @@
+spring:
+  application:
+    name: tracking-service
+  datasource:
+    url: ${WASSAL_DB_URL:jdbc:postgresql://localhost:5432/wassal}
+    username: ${WASSAL_DB_USER:tracking_svc}
+    password: ${WASSAL_DB_PASSWORD:tracking_svc}
+    hikari:
+      # Small: this service does almost no synchronous database work. The cold-path flusher is
+      # the only writer and it batches, so a large pool would reserve connections that the
+      # claim path in dispatch-service could use instead (architecture review F-5).
+      maximum-pool-size: 8
+      pool-name: tracking-main
+  flyway:
+    enabled: true
+    schemas: tracking
+    default-schema: tracking
+  data:
+    redis:
+      host: ${WASSAL_REDIS_HOST:localhost}
+      port: ${WASSAL_REDIS_PORT:6379}
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+wassal:
+  coldpath:
+    # Postgres write rate is a function of THIS interval, not of the message rate. At 100 msg/s
+    # a 5s window is ~0.2 writes/s — the order of magnitude NFR-003 requires.
+    flush-interval-ms: 5000
+    max-batch: 1000
+
+server:
+  port: ${WASSAL_PORT:8083}
+  error:
+    include-stacktrace: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      service: tracking-service

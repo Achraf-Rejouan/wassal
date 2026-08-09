@@ -12,6 +12,13 @@ RUN ./gradlew --no-daemon :${MODULE}:bootJar -x test
 
 FROM eclipse-temurin:21-jre-alpine AS runtime
 RUN addgroup -S app && adduser -S app -G app && apk add --no-cache wget
+
+# Create the ground-truth mount point WITH the right ownership before declaring the volume.
+# Docker seeds a fresh named volume from the image directory, including its ownership — without
+# this the volume is created root-owned and the non-root process cannot write to it.
+RUN mkdir -p /data/ground-truth && chown -R app:app /data
+VOLUME ["/data/ground-truth"]
+
 WORKDIR /app
 ARG MODULE
 COPY --from=build /src/${MODULE}/build/libs/*.jar app.jar

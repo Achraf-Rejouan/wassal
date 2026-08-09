@@ -180,6 +180,11 @@ public class AtomicClaimExecutor implements CourierClaimPort {
                         callerCourierId.value(),
                         Instant.now()));
 
+        // The order -> courier mapping the gateway resolves when a client subscribes. Written
+        // here because dispatch owns assignments; the gateway holds no domain state and must
+        // look it up rather than track it.
+        availability.publishAssignment(orderId.value().toString(), callerCourierId.toString());
+
         // Redis last, and outside the correctness argument. If this line never ran, the index
         // would be stale and the next claim against this courier would simply fail — one wasted
         // attempt, not an incorrect assignment. The index may lie; the claim cannot.

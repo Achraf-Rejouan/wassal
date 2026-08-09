@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: simulator
+  main:
+    web-application-type: none
+  data:
+    redis:
+      host: ${WASSAL_REDIS_HOST:localhost}
+      port: ${WASSAL_REDIS_PORT:6379}
+
+wassal:
+  sim:
+    enabled: ${WASSAL_SIM_ENABLED:true}
+    # Same seed + same profile => byte-identical run (NFR-008).
+    seed: ${WASSAL_SIM_SEED:42}
+    profile: ${WASSAL_SIM_PROFILE:standard}
+    run-seconds: ${WASSAL_SIM_RUN_SECONDS:0}
+    ground-truth-dir: ${WASSAL_SIM_GROUND_TRUTH_DIR:/data/ground-truth}
+    gateway-url: ${WASSAL_GATEWAY_URL:http://localhost:8080}
+    dispatch-url: ${WASSAL_DISPATCH_URL:http://localhost:8082}
+    tracking-url: ${WASSAL_TRACKING_URL:http://localhost:8083}
+
+logging:
+  level:
+    root: WARN
+    dev.wassal: INFO

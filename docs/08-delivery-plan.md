@@ -410,6 +410,22 @@ but not a named gap, since prior experience includes a calibrated synthetic gene
 run; ingest at 100 msg/s with Postgres writes ≥ 10× lower; position from instance B reaches a
 socket on instance A in < 1 s.
 
+> **SPRINT 4 RESULT (2026-08-09): exit criteria met.**
+>
+> | Proof | Result |
+> |---|---|
+> | 300 couriers on real Tunis streets | 29,567-node graph, 300 couriers, positions on real geometry |
+> | Cross-instance WebSocket fan-out | **confirmed on BOTH instances**, connected directly, bypassing the proxy |
+> | NFR-003 write amplification | **8,400 positions in 17 write statements — 494×** (see the NFR-003 clarification in `03-prd.md`) |
+> | FR-019 calibration | **59% accept** against a configured 60%; declines and expiries in band |
+> | Invariants under sustained simulated load | all six counters **zero** |
+> | Cancellation saga under load | 4 of 50 assignments cancelled and compensated |
+>
+> **NFR-003 was ambiguous and is now restated.** Rows written are necessarily 1:1 with
+> positions — nothing is discarded — so the "10× fewer rows" reading was never achievable. What
+> batching reduces is write *statements*, which is what the write-amplification challenge is
+> actually about. Recorded rather than quietly reinterpreted.
+
 **Demonstrable outcome:** open the map, watch 300 couriers move across Tunis while orders flow
 and get assigned. **The first sprint whose outcome is visually impressive — deliberately the
 fourth.** Tag `v0.3.5`.
