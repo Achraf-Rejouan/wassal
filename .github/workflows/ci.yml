@@ -44,12 +44,7 @@ jobs:
       # repository (security threat E-03). A skipped chaos test breaks nothing and removes
       # the entire failure-correctness claim.
       - name: No @Disabled in proof suites
-        run: |
-          if grep -rn "@Disabled" proof/ 2>/dev/null; then
-            echo "::error::@Disabled found in proof/ — a silenced proof is not a passing proof"
-            exit 1
-          fi
-          echo "OK: no @Disabled in proof/"
+        run: ./scripts/check-no-disabled-proofs.sh
 
       # An internet-reachable unauthenticated Redis is a trivially exploited target and is one
       # Compose line away (security threat T-02, amendment A-4).
