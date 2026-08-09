@@ -29,10 +29,12 @@ jobs:
       - name: Build and unit tests
         run: ./gradlew build
 
-      # ArchUnit rules run as part of `build`, but naming them makes a failure legible in the
-      # workflow summary rather than buried in a test report.
+      # ArchUnit rules already run inside `build`. This step names them so a boundary
+      # violation is legible in the workflow summary rather than buried in a test report.
+      # Scoped per module: a global --tests filter fails outright on any module that has no
+      # ArchTest, which is a CI defect rather than a code one.
       - name: Architecture rules
-        run: ./gradlew test --tests '*ArchTest'
+        run: ./gradlew :order-service:test :dispatch-service:test --tests '*ArchTest'
 
   guards:
     runs-on: ubuntu-latest

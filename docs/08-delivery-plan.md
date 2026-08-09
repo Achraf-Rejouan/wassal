@@ -297,6 +297,26 @@ order, one `curl` showing it assigned, and the Kafka topic showing both events.
 invariant violations, contention observed. Every rejected attempt got a definite `409`, never
 a timeout.
 
+> **SPRINT 2 RESULT (2026-08-09): exit criteria met, `v0.2.0`.**
+>
+> | Proof | Result |
+> |---|---|
+> | INV-1 — 5,000 concurrent accepts, 50 couriers | **0 double-assignments**, contention observed |
+> | INV-2 — 40 couriers racing one order | **exactly 1 assignment**; 39 lost cleanly |
+> | INV-3 — 500 parallel replays of one accept | **exactly 1 assignment**, 499 answered with the original |
+> | FR-012 — accept after deadline, offer still `OFFERED` | **refused**, proving `expires_at` is a claim predicate |
+> | Rollback — lost courier claim | offer returns to `OFFERED`; no `ACCEPTED` offer without an assignment |
+> | Counters | all six exported, each observed non-zero by injection |
+>
+> **S2-12 measured:** Redis `SET NX` 0.093 ms/attempt vs Postgres conditional update
+> 0.940 ms/attempt. **Redis is ~10× faster and ADR-0004 is unchanged** — throughput was never
+> the reason, and the crash-window test shows the lock surviving its holder while the Postgres
+> courier returns to `AVAILABLE` with no cleanup. Result appended under ADR-0004.
+>
+> **Three bugs found**, all by the proof suite and all recorded in `bug-log.md`: the order-side
+> race being miscounted as an INV-2 violation, concurrent replays answered with `409` instead of
+> the original assignment, and sub-second TTLs truncating to zero.
+
 **Demonstrable outcome:** run the concurrency suite live and show the output — attempted,
 succeeded, failed-claims, violations = 0. **This is the moment the project becomes worth
 showing anyone.** Tag `v0.2.0`.
