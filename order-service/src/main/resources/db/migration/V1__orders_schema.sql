@@ -45,7 +45,13 @@ CREATE TABLE orders.idempotency_keys (
     merchant_id  uuid NOT NULL,
     key          text NOT NULL,
     request_hash text NOT NULL,
-    order_id     uuid NOT NULL REFERENCES orders.orders (id) ON DELETE RESTRICT,
+    -- DEFERRABLE so the idempotency key can be claimed BEFORE the order row is inserted.
+    -- Claiming first is what makes a lost race cost nothing: the loser returns the winner's
+    -- id having written nothing. Claiming second means the loser has already inserted an
+    -- order it must then undo, which is how the first implementation created 24 orders for
+    -- 24 concurrent requests sharing one key (see docs/bug-log.md).
+    order_id     uuid NOT NULL REFERENCES orders.orders (id) ON DELETE RESTRICT
+                 DEFERRABLE INITIALLY DEFERRED,
     created_at   timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (merchant_id, key)
 );

@@ -46,21 +46,26 @@ public class OrderCreationService {
         Instant now = clock.instant();
         OrderId orderId = OrderId.newId();
 
-        Order order =
-                Order.create(
-                        orderId, command.merchantId(), command.pickup(), command.dropoff(), now);
-
-        orders.insert(order);
-
-        // Claim the key AFTER inserting the order so the FK is satisfiable. If the claim
-        // loses, the whole transaction rolls back — including the order just inserted — and
-        // the winner's id is returned instead. That rollback is why no orphan order can exist.
+        // Claim the idempotency key FIRST. The unique constraint arbitrates concurrent
+        // duplicates, and claiming before any other write is what makes losing free: the loser
+        // returns the winner's id having inserted nothing.
+        //
+        // The first version of this method inserted the order first and returned early when the
+        // claim lost — which committed the order anyway, producing one order per concurrent
+        // request. The transaction only rolls back if something throws, and returning normally
+        // is not throwing. Order matters here, not just atomicity.
         var claim =
                 idempotency.claim(command.merchantId(), command.idempotencyKey(), command, orderId);
 
         if (!claim.won()) {
             return new Result(claim.existingOrderId(), false);
         }
+
+        Order order =
+                Order.create(
+                        orderId, command.merchantId(), command.pickup(), command.dropoff(), now);
+
+        orders.insert(order);
 
         outbox.write(
                 "Order",

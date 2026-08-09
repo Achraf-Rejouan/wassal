@@ -15,10 +15,32 @@ spring:
     schemas: orders
     default-schema: orders
     locations: classpath:db/migration
+  kafka:
+    bootstrap-servers: ${WASSAL_KAFKA:localhost:19092}
+    producer:
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      group-id: order-assignment-lifecycle
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    listener:
+      ack-mode: record
   jackson:
     default-property-inclusion: non_null
     serialization:
       write-dates-as-timestamps: false
+
+wassal:
+  topics:
+    assignment-lifecycle: assignment.lifecycle
+  outbox:
+    topic: order.lifecycle
+    poll-interval-ms: 100
+    batch-size: 100
 
 server:
   port: ${WASSAL_PORT:8081}

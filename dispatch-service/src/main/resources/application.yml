@@ -1,10 +1,61 @@
 spring:
   application:
     name: dispatch-service
+  datasource:
+    url: ${WASSAL_DB_URL:jdbc:postgresql://localhost:5432/wassal}
+    username: ${WASSAL_DB_USER:dispatch_svc}
+    password: ${WASSAL_DB_PASSWORD:dispatch_svc}
+    hikari:
+      # dispatch-service runs three competing workloads (claims, sweeper, publisher). Sized
+      # explicitly so background work cannot starve the claim path — pool exhaustion presents
+      # as latency rather than error, which is the hardest kind to attribute (review F-5).
+      maximum-pool-size: 16
+      pool-name: dispatch-main
+  flyway:
+    enabled: true
+    schemas: dispatch
+    default-schema: dispatch
+  kafka:
+    bootstrap-servers: ${WASSAL_KAFKA:localhost:19092}
+    producer:
+      # acks=all: the outbox row is marked sent only after every in-sync replica has it.
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      group-id: dispatch-order-lifecycle
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    listener:
+      # Offsets commit only after the listener returns normally, so a crash mid-processing
+      # replays rather than loses (INV-5).
+      ack-mode: record
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+wassal:
+  topics:
+    order-lifecycle: order.lifecycle
+  outbox:
+    topic: assignment.lifecycle
+    poll-interval-ms: 100
+    batch-size: 100
+
 server:
   port: ${WASSAL_PORT:8082}
+  error:
+    include-stacktrace: never
+
 management:
   endpoints:
     web:
       exposure:
         include: health,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true

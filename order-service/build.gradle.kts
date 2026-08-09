@@ -13,11 +13,14 @@ dependencies {
     runtimeOnly(libs.postgresql)
     compileOnly(libs.postgresql)
     implementation(libs.micrometer.prometheus)
+    implementation(libs.spring.kafka)
 
     testImplementation(libs.spring.boot.starter.test)
     testImplementation(libs.assertj.core)
     testImplementation(libs.archunit.junit5)
     testImplementation(platform(libs.testcontainers.bom))
     testImplementation(libs.testcontainers.junit)
+    testImplementation(libs.testcontainers.postgresql)
+    testImplementation(libs.awaitility)
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.11.4")
 }
