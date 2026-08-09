@@ -19,3 +19,17 @@
 - **Cause:** seastar was asked for exactly the cgroup limit (--memory=1G inside mem_limit 1024m) and allocates up front, so container overhead left 1004535808 bytes against the 1073741824 requested
 - **Fix:** lowered --memory to 896M so the request sits below the cgroup limit, keeping the NFR-011 budget intact
 
+## 3. bug-log generator merged two Bug: blocks from one commit into one entry
+
+- **Date:** 2026-08-09 · **Commit:** [`f575831b`](../../commit/f575831bcabbea9aba5ff8871236badcd4c468e0)
+- **Found by:** first real run of scripts/gen-bug-log.sh, two trailers in a commit
+- **Cause:** the sed line-range /^Cause:/,/^(Fix|Bug|Found-by):/ spanned past the second Bug: header, and only the first Bug: line was ever read, so the second defect silently vanished into the first entry's fields
+- **Fix:** replaced sed parsing with scripts/gen_bug_log.py, which splits the message on Bug: boundaries and parses each block independently
+
+## 4. gen-bug-log.sh produced zero entries after the rewrite
+
+- **Date:** 2026-08-09 · **Commit:** [`f575831b`](../../commit/f575831bcabbea9aba5ff8871236badcd4c468e0)
+- **Found by:** verifying the parser fix
+- **Cause:** the script piped git log into python while also supplying the python source as a heredoc, so both competed for stdin and python read the heredoc as its input, exiting 141 on SIGPIPE
+- **Fix:** moved the parser into scripts/gen_bug_log.py and had it invoke git log via subprocess, leaving stdin unused
+
