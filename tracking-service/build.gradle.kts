@@ -15,3 +15,8 @@ dependencies {
     testImplementation(platform(libs.testcontainers.bom))
     testImplementation(libs.testcontainers.junit)
 }
+
+// No application code yet — this module lands in a later sprint (docs/08-delivery-plan.md).
+// Disabled explicitly so `./gradlew build` fails for real reasons only.
+tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") { enabled = false }
+tasks.named<Jar>("jar") { enabled = true }

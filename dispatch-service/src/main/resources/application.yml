@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: dispatch-service
+server:
+  port: ${WASSAL_PORT:8082}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus

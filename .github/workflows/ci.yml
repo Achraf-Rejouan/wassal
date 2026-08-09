@@ -1,0 +1,78 @@
+name: CI
+
+# CI is the only quality gate. Trunk-based with one developer means there is no reviewer, so
+# a weak pipeline means no gate at all (docs/coding-standards.md).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # gen-bug-log.sh walks the full history
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Format check
+        run: ./gradlew spotlessCheck
+
+      - name: Build and unit tests
+        run: ./gradlew build
+
+      # ArchUnit rules run as part of `build`, but naming them makes a failure legible in the
+      # workflow summary rather than buried in a test report.
+      - name: Architecture rules
+        run: ./gradlew test --tests '*ArchTest'
+
+  guards:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      # Silencing a proof must require deleting it visibly, in a commit, in a public
+      # repository (security threat E-03). A skipped chaos test breaks nothing and removes
+      # the entire failure-correctness claim.
+      - name: No @Disabled in proof suites
+        run: |
+          if grep -rn "@Disabled" proof/ 2>/dev/null; then
+            echo "::error::@Disabled found in proof/ — a silenced proof is not a passing proof"
+            exit 1
+          fi
+          echo "OK: no @Disabled in proof/"
+
+      # An internet-reachable unauthenticated Redis is a trivially exploited target and is one
+      # Compose line away (security threat T-02, amendment A-4).
+      - name: Hosted overlay publishes no infrastructure port
+        run: |
+          f=docker-compose.hosted.yml
+          if [ -f "$f" ] && grep -qE '^\s+(postgres|redis|redpanda):' -A20 "$f" | grep -q 'ports:'; then
+            echo "::error::hosted overlay publishes an infrastructure port"
+            exit 1
+          fi
+          echo "OK: hosted overlay clean (or not present yet)"
+
+      - name: Every Compose service declares mem_limit
+        run: ./scripts/check-mem-limits.sh
+
+      # Detects a stale log — the failure that actually happens. It cannot detect a missing
+      # trailer on a commit that deserved one; nothing can, and the docs say so.
+      - name: bug-log.md is not stale
+        run: |
+          ./scripts/gen-bug-log.sh
+          if ! git diff --quiet docs/bug-log.md; then
+            echo "::error::docs/bug-log.md is stale — run ./scripts/gen-bug-log.sh and commit"
+            git diff docs/bug-log.md
+            exit 1
+          fi
+          echo "OK: bug-log.md current"

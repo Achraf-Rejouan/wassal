@@ -1,0 +1,104 @@
+# Wassal — core profile (S1-02).
+#
+# Every service declares mem_limit. NFR-011's budget is tight and unenforced limits blow it:
+# six JVMs at default heap plus Redpanda's default reservation exceed 6 GB before Postgres is
+# counted (architecture review F-6). S1-15 measures the real footprint on native Fedora Docker
+# and restates the targets against it — the numbers below are provisional until then.
+#
+# Startup ordering is by health check, never by sleep. A `docker compose up` that needs a
+# second attempt fails NFR-007 and is treated as a defect.
+
+name: wassal
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    mem_limit: 768m
+    environment:
+      POSTGRES_DB: wassal
+      POSTGRES_USER: wassal
+      POSTGRES_PASSWORD: wassal
+    command: >
+      postgres -c shared_buffers=256MB -c max_connections=100
+    ports:
+      - "5432:5432"   # local convenience only — the hosted overlay publishes nothing (A-4)
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # `z` relabels for SELinux — Fedora runs Enforcing by default and denies
+      # container access to un-labelled bind mounts (see docs/bug-log.md).
+      - ./infra/db/init:/docker-entrypoint-initdb.d:ro,z
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wassal -d wassal"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    mem_limit: 256m
+    # noeviction is deliberate: under memory pressure the correct behaviour is to fail loudly.
+    # An evicted geo entry is an invisible correctness degradation, which is exactly the class
+    # of failure this project exists to expose.
+    command: >
+      redis-server --maxmemory 200mb --maxmemory-policy noeviction --appendonly no
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redpanda:
+    image: redpandadata/redpanda:v24.2.18
+    mem_limit: 1024m
+    # The default memory reservation is the single largest offender against NFR-011.
+    # --memory must sit BELOW mem_limit: seastar allocates up front and fails hard if
+    # the cgroup cannot satisfy the full request (see docs/bug-log.md).
+    command:
+      - redpanda
+      - start
+      - --smp=1
+      - --memory=896M
+      - --overprovisioned
+      - --reserve-memory=0M
+      - --node-id=0
+      - --check=false
+      - --kafka-addr=PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr=PLAINTEXT://redpanda:9092
+    ports:
+      - "19092:9092"
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy:.*true'"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  order-service:
+    build:
+      context: .
+      dockerfile: infra/docker/service.Dockerfile
+      args:
+        MODULE: order-service
+    mem_limit: 384m
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70"
+      WASSAL_DB_URL: jdbc:postgresql://postgres:5432/wassal
+      WASSAL_DB_USER: order_svc
+      WASSAL_DB_PASSWORD: order_svc
+      WASSAL_PORT: "8081"
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep -q UP"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  pgdata:
