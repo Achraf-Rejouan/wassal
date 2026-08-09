@@ -5,7 +5,10 @@
 >
 > See `docs/coding-standards.md` for the trailer format and what qualifies.
 
-_No entries yet._
+## 1. docker compose up failed — postgres could not read its init directory
 
-An empty log by the end of Sprint 3 is a **finding, not a success** — it means the proof
-suites are not adversarial enough (G-6, delivery-plan watch list).
+- **Date:** 2026-08-09 · **Commit:** [`a04919d6`](../../commit/a04919d6524f74f25340f5929af3dfc60655c69b)
+- **Found by:** first `docker compose up` on Fedora 44
+- **Cause:** SELinux runs Enforcing by default on Fedora and denies container access to bind mounts that carry no container label; the mount was declared :ro with no relabel option seastar was asked for exactly the cgroup limit (--memory=1G inside mem_limit 1024m) and allocates up front, so container overhead left 1004535808 bytes against the 1073741824 requested 
+- **Fix:** added the `z` option to the init bind mount so Docker applies a shared SELinux label Bug: redpanda exited immediately with "insufficient physical memory" Found-by: first `docker compose up` Cause: seastar was asked for exactly the cgroup limit (--memory=1G inside mem_limit 1024m) and allocates up front, so container overhead left 1004535808 bytes against the 1073741824 requested lowered --memory to 896M so the request sits below the cgroup limit, keeping the NFR-011 budget intact 
+
