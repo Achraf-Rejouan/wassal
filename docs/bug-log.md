@@ -40,3 +40,17 @@
 - **Cause:** the check grepped all of proof/ for the literal string @Disabled and matched its own explanatory comment in proof/*/build.gradle.kts, so the guard reported a violation that did not exist
 - **Fix:** moved it to scripts/check-no-disabled-proofs.sh, restricted to --include='*.java' and anchored to ^\s*@Disabled so only a real annotation matches
 
+## 6. 24 concurrent requests sharing one Idempotency-Key created 24 orders
+
+- **Date:** 2026-08-09 · **Commit:** [`989eb4e1`](../../commit/989eb4e159290021226075b22de777590e4372e3)
+- **Found by:** OrderCreationIT.concurrentDuplicatesProduceOneOrder, against a real PostGIS container
+- **Cause:** OrderCreationService inserted the order BEFORE claiming the key and returned early when the claim lost. Returning normally commits — the transaction only rolls back on a throw — so every loser committed the order it had already inserted. Atomicity was correct; the ORDER of the writes was not, and a mocked repository would have hidden it
+- **Fix:** claim the idempotency key first and insert the order only on winning, so a loser has written nothing. The idempotency_keys FK is now DEFERRABLE INITIALLY DEFERRED to allow claiming before the order row exists
+
+## 7. every Testcontainers test failed with "Could not find a valid Docker environment"
+
+- **Date:** 2026-08-09 · **Commit:** [`989eb4e1`](../../commit/989eb4e159290021226075b22de777590e4372e3)
+- **Found by:** first run of the integration suite on Fedora 44, Docker Engine 29.6
+- **Cause:** three compounding causes behind one misleading message. Spring Boot's BOM silently pinned Testcontainers back to 1.20.4 over the version catalogue; a stale docker.client.strategy pin in ~/.testcontainers.properties forced a strategy that hardcodes Docker API 1.32; and Engine 29 refuses anything below 1.40. docker-java reads api.version as a SYSTEM PROPERTY and ignores DOCKER_API_VERSION, which is why no shell export fixed it
+- **Fix:** override the Spring-managed testcontainers.version from the catalogue, and set api.version, DOCKER_HOST and docker.client.strategy on the test task so the fix is committed and reproducible rather than living in a home directory
+
