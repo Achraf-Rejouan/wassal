@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: order-service
+  datasource:
+    url: ${WASSAL_DB_URL:jdbc:postgresql://localhost:5432/wassal}
+    username: ${WASSAL_DB_USER:order_svc}
+    password: ${WASSAL_DB_PASSWORD:order_svc}
+    hikari:
+      # Sized explicitly per service (architecture review F-5). Background work must not
+      # starve the request path, and pool exhaustion presents as latency rather than error.
+      maximum-pool-size: 12
+      pool-name: order-main
+  flyway:
+    enabled: true
+    schemas: orders
+    default-schema: orders
+    locations: classpath:db/migration
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+server:
+  port: ${WASSAL_PORT:8081}
+  error:
+    include-stacktrace: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # health + prometheus ONLY (security A-3). env/heapdump/threaddump leak configuration
+        # and memory contents; they stay closed.
+        include: health,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      service: order-service
+
+logging:
+  level:
+    root: INFO
+    dev.wassal: INFO
