@@ -398,7 +398,50 @@ lock, here is the crash window that decided it, and here is the benchmark of bot
 stronger artifact than either implementation alone. Open question U-2 is closed as *scheduled*
 rather than optional.
 
-<!-- S2-12 result to be appended here on completion: benchmark table + crash-window analysis -->
+**S2-12 RESULT (2026-08-09).** Spike executed in Sprint 2 as scheduled. Source:
+`dispatch-service/src/test/java/dev/wassal/dispatch/RedisLockComparisonTest.java` — test source
+set only, never wired into a production path.
+
+**Benchmark**, 500 contended attempts, 20 couriers, 25 attempts each, released simultaneously:
+
+| Variant | Total | Per attempt | Won | Lost |
+|---|---:|---:|---:|---:|
+| Redis `SET NX PX` | 46.6 ms | **0.093 ms** | 20 | 480 |
+| Postgres conditional `UPDATE` | 470.1 ms | **0.940 ms** | 20 | 480 |
+
+**Redis is roughly 10× faster per attempt, and the decision is unchanged.** Publishing a number
+that flatters the rejected option is the point of measuring rather than asserting: throughput was
+never the reason for this ADR, and at the design target of ~0.8 claims/s a 0.94 ms claim is four
+orders of magnitude inside budget. Both variants produced exactly one winner per courier, so on
+the happy path they are indistinguishable — which is precisely what makes the lock tempting.
+
+**The crash window, which is what actually decided it.** Verified by
+`crashBetweenClaimAndAssignment`:
+
+```
+Redis lock                                   Postgres conditional update
+-----------------------------------------    -----------------------------------------
+1. SET lock:courier:X NX PX 30000  -> OK      1. BEGIN
+2. <<< PROCESS DIES >>>                       2. UPDATE couriers SET status='BUSY'
+   Lock survives. Courier is claimed,            WHERE id=X AND status='AVAILABLE'
+   no assignment exists, and nothing in       3. INSERT assignment
+   Postgres records the attempt.              4. <<< PROCESS DIES >>>
+3. Released only when the TTL expires.           Rollback. Courier AVAILABLE again.
+                                                 No orphan, no TTL, no cleanup job.
+```
+
+The test asserts both halves: the Redis lock is still held with a positive TTL after the holder
+dies, while the Postgres courier is back to `AVAILABLE` with no compensating action taken.
+
+**The TTL has no correct value.** It must exceed the longest possible assignment or mutual
+exclusion breaks; it must be short enough that a crash does not strand a courier for minutes.
+Those constraints do not both have a solution, so the lock variant would need fencing tokens —
+Kleppmann's argument, reduced to this specific claim. The transactional variant has no such
+parameter, because the store that holds the data is the store that arbitrates access to it.
+
+**Learning target G-5 (distributed locking) is closed by this comparison**, not by the ADR's
+reasoning alone. Knowing when *not* to reach for a distributed lock — and being able to show the
+crash window and the benchmark — is the more valuable half of understanding one.
 
 ---
 

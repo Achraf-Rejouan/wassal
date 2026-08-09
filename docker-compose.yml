@@ -114,12 +114,14 @@ services:
       WASSAL_DB_USER: dispatch_svc
       WASSAL_DB_PASSWORD: dispatch_svc
       WASSAL_KAFKA: redpanda:9092
+      WASSAL_REDIS_HOST: redis
       WASSAL_PORT: "8082"
     ports:
       - "8082:8082"
     depends_on:
       postgres: { condition: service_healthy }
       redpanda: { condition: service_healthy }
+      redis: { condition: service_healthy }
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8082/actuator/health | grep -q UP"]
       interval: 5s

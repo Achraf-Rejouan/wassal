@@ -15,6 +15,10 @@ spring:
     enabled: true
     schemas: dispatch
     default-schema: dispatch
+  data:
+    redis:
+      host: ${WASSAL_REDIS_HOST:localhost}
+      port: ${WASSAL_REDIS_PORT:6379}
   kafka:
     bootstrap-servers: ${WASSAL_KAFKA:localhost:19092}
     producer:
