@@ -46,6 +46,15 @@ public class AssignmentCreatedConsumer {
     @KafkaListener(topics = "${wassal.topics.assignment-lifecycle}", groupId = CONSUMER_GROUP)
     @Transactional
     public void onAssignmentCreated(ConsumerRecord<String, String> record) throws Exception {
+        // The topic now carries several event types (expiry, cancellation, unassignable), so a
+        // consumer that assumed a single shape would deserialise garbage into the wrong record.
+        var typeHeader = record.headers().lastHeader("event-type");
+        String eventType =
+                typeHeader == null ? null : new String(typeHeader.value(), StandardCharsets.UTF_8);
+        if (!"AssignmentCreated".equals(eventType)) {
+            return;
+        }
+
         UUID messageId = messageIdOf(record);
         if (!claim(messageId)) {
             return;

@@ -54,6 +54,10 @@ public class OrderCreatedConsumer {
 
         OrderCreated event = objectMapper.readValue(record.value(), OrderCreated.class);
 
+        // dispatch cannot read orders.orders (module boundary, and the per-service Postgres
+        // role forbids it), so the pickup rides along on the event and is cached for re-offers.
+        dispatcher.rememberPickup(event.orderId(), event.pickupLat(), event.pickupLon());
+
         var outcome =
                 dispatcher.dispatch(
                         OrderId.of(event.orderId()),

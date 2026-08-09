@@ -143,6 +143,7 @@ A-05), Q-07 (no authentication, A-03).
 | 2026-08-08 | Phase 0 approved; project named Wassal | Kickoff brief supplied the idea in enough detail that Phase 0 was confirmation rather than discovery |
 | 2026-08-08 | Phase 1 approved: `feasibility.md`, verdict **Proceed with concerns** | Scope estimate exceeds budget by ~10–25%; resolved by feature cuts. Road-geometry routing-engine trap identified as the top technical risk |
 | 2026-08-08 | ADR-0001 accepted | Records deliberate complexity as a decision rather than an oversight, per session rule 0.2 |
+| 2026-08-09 | **Sprint 3 complete — `v0.3.0`.** Durable expiry, accept-vs-expire in both orderings, cancellation saga with crash resumption, INV-4 and INV-6. Expiry measured at **0.134 s** past deadline across a process kill | Exit criteria met |
 | 2026-08-09 | **Sprint 2 complete — `v0.2.0`.** Atomic claim, geospatial offers, invariant counters. INV-1/2/3 proven under 5,000 / 40 / 500 concurrent attempts with contention asserted. S2-12 benchmark closes learning target G-5 | Exit criteria met |
 | 2026-08-09 | **Sprint 1 complete — `v0.1.0`.** Walking skeleton end to end, cold start 23 s | Exit criteria met |
 | 2026-08-09 | **Pre-Sprint-1 amendment pass, items 1–6.** Timeline reset: 13 h/week, committed scope `v0.4.0`, 24 weeks to 24 Jan 2027 (ADR-0010). Must ratio re-triaged 96% → 78%. Redis comparison moved to Sprint 2. `bug-log.md` made a generated artifact. NFR-011 marked provisional pending Sprint-1 measurement. 2× over-run rule added | Six external review findings, all applied |

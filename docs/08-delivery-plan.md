@@ -356,6 +356,27 @@ showing anyone.** Tag `v0.2.0`.
 expires within ±1 s of t=15 s and the order is re-dispatched. Saga resumes rather than
 restarts. Zero lost orders.
 
+> **SPRINT 3 RESULT (2026-08-09): exit criteria met, `v0.3.0`.**
+>
+> **The headline demonstration, measured on the live stack:** a 15 s offer was created,
+> `dispatch-service` was killed at ~t+2 s and restarted at ~t+10 s, and expiry fired
+> **0.134 s after the deadline** — inside NFR-004's ±1 s, having survived the death of the
+> process that created it. Nothing in the JVM was holding the deadline; it is a column.
+>
+> | Proof | Result |
+> |---|---|
+> | FR-011 — expiry across a restart spanning the deadline | **0.134 s** past deadline |
+> | FR-012 — accept before sweep | accept wins, sweeper finds 0 rows |
+> | FR-012 — sweep before accept | `410`, no assignment, courier still `AVAILABLE` |
+> | FR-012 — 25 concurrent accept-vs-sweep races | every round converged on exactly one coherent world |
+> | INV-6 — cancellation replayed 100× | **one** release, one saga row |
+> | Saga crash resumption | resumed from `current_step`, not from zero |
+> | Re-offer chain | seq 1 expired → 2 expired → 3 offered |
+> | Sweeper idempotence | one `OfferExpired` per offer across repeated passes |
+>
+> All 23 dispatch tests green. Metrics live: `wassal_sweeper_lag_seconds`,
+> `wassal_orders_stuck`, all six invariant counters.
+
 **Demonstrable outcome:** a scripted kill-and-recover run, narrated — offer outstanding,
 process killed, process restarted, expiry fires on time, order reassigned. **This is the
 strongest single demonstration in the project.** Tag `v0.3.0`.

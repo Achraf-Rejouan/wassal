@@ -44,6 +44,17 @@ spring:
 wassal:
   topics:
     order-lifecycle: order.lifecycle
+  sweeper:
+    interval-ms: 250
+    batch-size: 500
+  dedup:
+    # A correctness constraint, asserted at startup: must exceed kafka retention + max retry,
+    # or a replay can outlive its dedup record and be processed twice (INV-5).
+    retention-hours: 72
+  kafka:
+    retention-hours: 24
+  retry:
+    max-duration-hours: 1
   outbox:
     topic: assignment.lifecycle
     poll-interval-ms: 100

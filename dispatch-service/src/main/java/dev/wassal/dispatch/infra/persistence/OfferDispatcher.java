@@ -7,7 +7,6 @@ import dev.wassal.dispatch.domain.model.OrderId;
 import dev.wassal.dispatch.domain.port.CandidateFinder;
 import dev.wassal.dispatch.domain.service.OfferLifecycle;
 import java.util.List;
-import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -39,10 +38,15 @@ public class OfferDispatcher {
 
     private final CandidateFinder candidates;
     private final OfferRepository offers;
+    private final org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc;
 
-    public OfferDispatcher(CandidateFinder candidates, OfferRepository offers) {
+    public OfferDispatcher(
+            CandidateFinder candidates,
+            OfferRepository offers,
+            org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc) {
         this.candidates = candidates;
         this.offers = offers;
+        this.jdbc = jdbc;
     }
 
     @Transactional
@@ -81,7 +85,18 @@ public class OfferDispatcher {
         return new Outcome.Offered(offerId, best, sequence);
     }
 
-    public Optional<OfferId> currentOffer(OrderId orderId) {
-        return Optional.empty();
+    /** Caches the pickup so a re-offer can run a candidate search without a cross-schema read. */
+    @Transactional
+    public void rememberPickup(java.util.UUID orderId, double lat, double lon) {
+        jdbc.update(
+                """
+                INSERT INTO dispatch.order_pickups (order_id, pickup_lat, pickup_lon)
+                VALUES (:orderId, :lat, :lon)
+                ON CONFLICT (order_id) DO NOTHING
+                """,
+                new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+                        .addValue("orderId", orderId)
+                        .addValue("lat", lat)
+                        .addValue("lon", lon));
     }
 }
