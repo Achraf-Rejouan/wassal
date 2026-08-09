@@ -82,3 +82,10 @@
 - **Cause:** the TTL was converted with Duration.toSeconds(), truncating anything under a second to zero, so expires_at equalled offered_at. Harmless at the production 15s TTL but it makes short-deadline tests impossible — and those are the ones that exercise FR-012
 - **Fix:** convert in milliseconds
 
+## 12. CI "Architecture rules" step failed on a green tree
+
+- **Date:** 2026-08-09 · **Commit:** [`a91c835e`](../../commit/a91c835ec246a6c64c882cd438e6279cca72b8dc)
+- **Found by:** first CI run after Sprint 2
+- **Cause:** the step ran `./gradlew test --tests '*ArchTest'` across all modules. Gradle fails a test task outright when a --tests filter matches nothing, and dispatch-service had no ArchTest, so adding a module without one broke CI rather than merely leaving it unchecked
+- **Fix:** scope the step to the modules that have the rules, and add the missing LayeringArchTest to dispatch-service — where the layering matters most, since that service owns INV-1, INV-2 and INV-3
+
