@@ -86,6 +86,7 @@ services:
       WASSAL_DB_URL: jdbc:postgresql://postgres:5432/wassal
       WASSAL_DB_USER: order_svc
       WASSAL_DB_PASSWORD: order_svc
+      WASSAL_KAFKA: redpanda:9092
       WASSAL_PORT: "8081"
     ports:
       - "8081:8081"
@@ -96,6 +97,52 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep -q UP"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  dispatch-service:
+    build:
+      context: .
+      dockerfile: infra/docker/service.Dockerfile
+      args:
+        MODULE: dispatch-service
+    mem_limit: 512m
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70"
+      WASSAL_DB_URL: jdbc:postgresql://postgres:5432/wassal
+      WASSAL_DB_USER: dispatch_svc
+      WASSAL_DB_PASSWORD: dispatch_svc
+      WASSAL_KAFKA: redpanda:9092
+      WASSAL_PORT: "8082"
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redpanda: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8082/actuator/health | grep -q UP"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  gateway:
+    build:
+      context: .
+      dockerfile: infra/docker/service.Dockerfile
+      args:
+        MODULE: gateway
+    mem_limit: 384m
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70"
+      WASSAL_ORDER_SERVICE: http://order-service:8081
+      WASSAL_PORT: "8080"
+    ports:
+      - "8080:8080"
+    depends_on:
+      order-service: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q UP"]
       interval: 5s
       timeout: 5s
       retries: 20

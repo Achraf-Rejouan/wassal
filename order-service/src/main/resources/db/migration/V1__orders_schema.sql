@@ -5,8 +5,8 @@
 --
 -- Full schema and the reasoning behind every index: docs/05-data-model.md
 
-CREATE EXTENSION IF NOT EXISTS postgis;
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+-- Extensions are created by the superuser in infra/db/init/00-extensions.sql, not here:
+-- service roles are not superusers by design (security T-11).
 
 CREATE SCHEMA IF NOT EXISTS orders;
 

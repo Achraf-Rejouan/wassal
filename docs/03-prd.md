@@ -509,12 +509,29 @@ exactly why they carry the heaviest test and reconciliation burden.
   | redpanda | 1 024 MB | **213 MiB** |
   | **infra total** | **2 048 MB** | **≈258 MiB** |
 
-  The limits are roughly **8× actual idle usage**, which supports item 5's hypothesis that the
-  original figures were sized for VM-backed Docker overhead that does not exist here. **But this
-  is idle, and the JVM tier is not yet measured** — so the targets are *not* being relaxed on
-  this evidence. Re-measured with all services running and the simulator at 100 msg/s before
-  NFR-011 is restated. Recorded now because a measurement taken and not written down is a
-  measurement lost.
+  The limits are roughly **8× actual idle usage**.
+
+  **SECOND MEASUREMENT, 2026-08-09 — full Sprint-1 stack running, six containers:**
+
+  | Container | Limit | Measured |
+  |---|---:|---:|
+  | order-service | 384 MB | 190 MiB |
+  | dispatch-service | 512 MB | 190 MiB |
+  | gateway | 384 MB | 144 MiB |
+  | postgres | 768 MB | 91 MiB |
+  | redis | 256 MB | 4 MiB |
+  | redpanda | 1 024 MB | 215 MiB |
+  | **total** | **3 328 MB of limits** | **≈835 MiB actual** |
+
+  The JVM tier is now included and the picture holds: **835 MiB against 3.3 GB of limits.**
+  Extrapolating the three remaining services at ~190 MiB each plus the observability tier puts
+  the full stack near **1.9 GB actual** — comfortably inside the 6 GB Must and, notably, inside
+  the original 3 GB `core` sub-target that review R-04 recorded as missed.
+
+  **The targets are still not being relaxed.** The limits are what protect NFR-011 under load,
+  and this measurement is at low load with no simulator running. NFR-011 is restated once the
+  simulator drives 100 msg/s in Sprint 4 — the point at which the numbers become adversarial
+  rather than merely reassuring.
 - **The 15%-of-hours abort signal is unaffected** by whatever the measurement shows — it concerns operational time, not memory, and that reasoning is independent.
 - **General principle worth recording:** a target derived from an assumption about the environment is provisional until the environment is measured. Marking it so is cheaper than defending a number nobody checked.
 
