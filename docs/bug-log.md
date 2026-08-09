@@ -89,3 +89,10 @@
 - **Cause:** the step ran `./gradlew test --tests '*ArchTest'` across all modules. Gradle fails a test task outright when a --tests filter matches nothing, and dispatch-service had no ArchTest, so adding a module without one broke CI rather than merely leaving it unchecked
 - **Fix:** scope the step to the modules that have the rules, and add the missing LayeringArchTest to dispatch-service — where the layering matters most, since that service owns INV-1, INV-2 and INV-3
 
+## 13. dispatch-service failed to start after the Sprint 3 migration
+
+- **Date:** 2026-08-09 · **Commit:** [`6d69cb52`](../../commit/6d69cb527588e1368bdb02f7e370e53a378315df)
+- **Found by:** DurabilityIT — the whole suite failed with a context load error
+- **Cause:** CancellationSaga writes and reads assignments.cancel_reason, but that column was never created; the Sprint 1 skeleton table had cancelled_at and no reason. The saga-resume task runs on ApplicationReadyEvent, so a bad query there took the entire context down rather than failing one feature
+- **Fix:** added the column in V3, and made saga resumption log-and-count rather than propagate. A saga that cannot resume is serious, but refusing to boot is worse — the service would stop accepting orders over a handful of in-flight cancellations. The dedup-retention assertion deliberately still fails hard, because booting with INV-5 broken is worse than not booting
+
